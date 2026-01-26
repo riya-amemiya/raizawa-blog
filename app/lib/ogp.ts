@@ -125,17 +125,41 @@ const getAltText = (title: string, url: string): string => {
   return title;
 };
 
+const escapeHtml = (text: string): string =>
+  text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+const isSafeUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return ["http:", "https:"].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+};
+
 const generateOGPCard = (ogp: OGPData): string => {
   const { description, image, siteName, title, url } = ogp;
 
   let imageHtml = `<span class="ogp-image ogp-noimage">NO IMAGE</span>`;
-  if (image !== "") {
-    const altText = getAltText(title, url);
-    imageHtml = `<span class="ogp-image"><img src="${image}" alt="${altText}" /></span>`;
+  if (image !== "" && isSafeUrl(image)) {
+    const altText = escapeHtml(getAltText(title, url));
+    const escapedImage = escapeHtml(image);
+    imageHtml = `<span class="ogp-image"><img src="${escapedImage}" alt="${altText}" /></span>`;
   }
 
-  const displayTitle = getAltText(title, url);
-  return `<a href="${url}" class="ogp-card" target="_blank" rel="noopener noreferrer">${imageHtml}<span class="ogp-content"><span class="ogp-title">${displayTitle}</span><span class="ogp-description">${description}</span><span class="ogp-site">${siteName}</span></span></a>`;
+  const displayTitle = escapeHtml(getAltText(title, url));
+  const safeUrl = isSafeUrl(url) ? url : "";
+
+  return `<a href="${escapeHtml(
+    safeUrl,
+  )}" class="ogp-card" target="_blank" rel="noopener noreferrer">${imageHtml}<span class="ogp-content"><span class="ogp-title">${displayTitle}</span><span class="ogp-description">${escapeHtml(
+    description,
+  )}</span><span class="ogp-site">${escapeHtml(siteName)}</span></span></a>`;
 };
 
 export type { OGPData };

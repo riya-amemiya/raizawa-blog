@@ -1,0 +1,24 @@
+$ vite
+
+  VITE v7.3.1  ready in 2238 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+Sourcemap for "/app/node_modules/entities/lib/esm/index.js" points to missing source files
+Sourcemap for "/app/node_modules/entities/lib/esm/decode.js" points to missing source files
+Sourcemap for "/app/node_modules/entities/lib/esm/generated/decode-data-html.js" points to missing source files
+Sourcemap for "/app/node_modules/entities/lib/esm/generated/decode-data-xml.js" points to missing source files
+Sourcemap for "/app/node_modules/entities/lib/esm/decode_codepoint.js" points to missing source files
+Sourcemap for "/app/node_modules/entities/lib/esm/encode.js" points to missing source files
+Sourcemap for "/app/node_modules/entities/lib/esm/generated/encode-html.js" points to missing source files
+Sourcemap for "/app/node_modules/entities/lib/esm/escape.js" points to missing source files
+[32mGET[0m  /feed.xml
+[32mGET[0m  /
+[32mGET[0m  /tag
+[32mGET[0m  /tag/:tag
+[32mGET[0m  /posts/:slug
+[32mGET[0m  /page/:page
+[32mGET[0m  /category
+[32mGET[0m  /category/:category
+7:03:38 AM [vite] (client) Re-optimizing dependencies because lockfile has changed
+7:03:38 AM [vite] server restarted.
