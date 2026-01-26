@@ -24,6 +24,8 @@ const MS_PER_SECOND = 1000;
 // 1 hour cache duration
 const CACHE_DURATION = SECONDS_PER_MINUTE * MINUTES_PER_HOUR * MS_PER_SECOND;
 const FETCH_TIMEOUT_MS = 5000;
+// Limit HTML download to 64KB
+const MAX_HTML_SIZE = 64 * 1024;
 const REGEX_CAPTURE_GROUP_INDEX = 1;
 
 // Extract content from meta tags using regex
@@ -47,27 +49,64 @@ const getCachedOGP = (url: string): OGPData | undefined => {
   return undefined;
 };
 
-// Fetch HTML content with timeout
+// Fetch HTML content with timeout and size limit
 const fetchPageHTML = async (url: string): Promise<string> => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
   }, FETCH_TIMEOUT_MS);
 
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": `Mozilla/5.0 (compatible; OGPBot/1.0; +${SITE_URL})`,
-    },
-    signal: controller.signal,
-  });
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": `Mozilla/5.0 (compatible; OGPBot/1.0; +${SITE_URL})`,
+      },
+      signal: controller.signal,
+    });
 
-  clearTimeout(timeoutId);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    const contentType = response.headers.get("Content-Type");
+    if (contentType !== null && !contentType.includes("text/html")) {
+      return "";
+    }
+
+    if (response.body === null) {
+      return await response.text();
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let html = "";
+    let receivedLength = 0;
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, no-constant-condition -- loop until done or limit reached
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        receivedLength += value.length;
+        html += decoder.decode(value, { stream: true });
+
+        if (receivedLength >= MAX_HTML_SIZE) {
+          await reader.cancel();
+          break;
+        }
+      }
+    } finally {
+      html += decoder.decode();
+    }
+
+    return html;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return response.text();
 };
 
 // Extract OGP data from HTML content

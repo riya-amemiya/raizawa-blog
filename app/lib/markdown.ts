@@ -2,10 +2,17 @@ import { fetchOGP, generateOGPCard } from "./ogp";
 import { SHIKI_THEME, getHighlighter, shikiTransformers } from "./shiki";
 import MarkdownIt from "markdown-it";
 
-const REGEX_CAPTURE_GROUP_INDEX = 1;
-
 // Initialize markdown-it
 const md = MarkdownIt({ breaks: true, html: true });
+
+// Regex constants for URL detection
+// Group 1: Full match for <URL>
+// Group 2: The URL inside <URL>
+// Group 3: Full match for standalone URL
+// Group 4: The URL itself
+const COMBINED_URL_REGEX = /(^<(https?:\/\/[^\s>]+)>$)|(^(https?:\/\/[^\s]+)$)/gm;
+const GROUP_INDEX_AUTOLINK_URL = 2;
+const GROUP_INDEX_STANDALONE_URL = 4;
 
 // Shiki plugin (initialized lazily)
 let shikiInitialized = false;
@@ -54,30 +61,17 @@ const initShiki = async () => {
   shikiInitialized = true;
 };
 
-// Extract URLs from markdown using a regex pattern
-const extractUrlsWithPattern = (markdown: string, regex: RegExp): string[] => {
+// Detect standalone URLs (on their own line only)
+const detectStandaloneURLs = (markdown: string): string[] => {
   const urls: string[] = [];
-  for (const match of markdown.matchAll(regex)) {
-    const url = match[REGEX_CAPTURE_GROUP_INDEX];
+  for (const match of markdown.matchAll(COMBINED_URL_REGEX)) {
+    const url = match[GROUP_INDEX_AUTOLINK_URL] ?? match[GROUP_INDEX_STANDALONE_URL];
     if (url !== undefined && url !== "") {
       urls.push(url);
     }
   }
-  return urls;
-};
-
-// Detect standalone URLs (on their own line only)
-const detectStandaloneURLs = (markdown: string): string[] => {
-  // Match <URL> on its own line
-  const autolinkRegex = /^<(https?:\/\/[^\s>]+)>$/gm;
-  const autolinkUrls = extractUrlsWithPattern(markdown, autolinkRegex);
-
-  // Match standalone URLs on their own line
-  const standaloneRegex = /^(https?:\/\/[^\s]+)$/gm;
-  const standaloneUrls = extractUrlsWithPattern(markdown, standaloneRegex);
-
   // Remove duplicates
-  return [...new Set([...autolinkUrls, ...standaloneUrls])];
+  return [...new Set(urls)];
 };
 
 const renderMarkdown = async (markdown: string): Promise<string> => {
@@ -94,16 +88,17 @@ const renderMarkdown = async (markdown: string): Promise<string> => {
     })),
   );
 
-  // Replace standalone URLs with OGP cards
-  let processedMarkdown = markdown;
-  for (const { url, ogp } of ogpResults) {
-    const ogpCard = generateOGPCard(ogp);
-    const escapedUrl = url.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-    // Replace only standalone URLs (on their own line)
-    processedMarkdown = processedMarkdown
-      .replaceAll(new RegExp(`^<${escapedUrl}>$`, "gm"), ogpCard)
-      .replaceAll(new RegExp(`^${escapedUrl}$`, "gm"), ogpCard);
-  }
+  const ogpMap = new Map(ogpResults.map(({ url, ogp }) => [url, generateOGPCard(ogp)]));
+
+  // Replace standalone URLs with OGP cards in a single pass
+  const processedMarkdown = markdown.replace(
+    COMBINED_URL_REGEX,
+    (match, _p1, url1, _p3, url2) => {
+      const url = url1 ?? url2;
+      const card = ogpMap.get(url);
+      return card ?? match;
+    },
+  );
 
   return md.render(processedMarkdown);
 };
